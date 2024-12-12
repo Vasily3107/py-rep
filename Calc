@@ -11,3 +11,9 @@ class Calc:
 
     def mul(self):
         return self.v1 * self.v2
+
+    def div(self):
+        if self.v2 is not 0:
+            return self.v1 / self.v2
+        else:
+            return "Can't divide by zero"
