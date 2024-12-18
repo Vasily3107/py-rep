@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter.ttk import Combobox
+from tkinter import messagebox
 
 w = Tk()
 
@@ -13,19 +14,23 @@ def set_rand_num():
     try: left = int(c_from.get())
     except:
         l.configure(text = "bounds error")
+        messagebox.showerror("Left bound error", "Bound \"From\" is not a number")
         return
 
     try: right = int(c_to.get())
     except:
         l.configure(text = "bounds error")
+        messagebox.showerror("Right bound error", "Bound \"To\" is not a number")
         return
 
-    if left > right: left, right = right, left
+    if left > right:
+        messagebox.showwarning("Bounds warning", "Left bound cannot be greater than Right one")
+        left, right = right, left
 
     n = randint(left, right)
     l.configure(text = f"{n:,}")
 
-b = Button(text = "Generater random number", command = set_rand_num)
+b = Button(text = "Generate random number", command = set_rand_num)
 b.grid(row = 0, column = 1)
 
 l_from = Label(text = "From:")
