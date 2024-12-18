@@ -11,13 +11,13 @@ l.grid(row = 0, column = 0)
 
 from random import randint
 def set_rand_num():
-    try: left = int(c_from.get())
+    try: left = int(cb_from.get())
     except:
         l.configure(text = "bounds error")
         messagebox.showerror("Left bound error", "Bound \"From\" is not a number")
         return
 
-    try: right = int(c_to.get())
+    try: right = int(cb_to.get())
     except:
         l.configure(text = "bounds error")
         messagebox.showerror("Right bound error", "Bound \"To\" is not a number")
@@ -28,10 +28,18 @@ def set_rand_num():
         left, right = right, left
 
     n = randint(left, right)
+
+    if all( i in list(lb.get(0, END)) for i in list(range(left, right + 1)) ):
+        messagebox.showwarning("Genereting warning", f"All possible numbers from {left} to {right} are in the list")
+        return
+
+    while n in lb.get(0, END):
+        n = randint(left, right)
+
     l.configure(text = f"{n:,}")
 
-b = Button(text = "Generate random number", command = set_rand_num)
-b.grid(row = 0, column = 1)
+b_generate = Button(text = "Generate random number", command = set_rand_num)
+b_generate.grid(row = 0, column = 1)
 
 l_from = Label(text = "From:")
 l_from.grid(row = 1, column = 0)
@@ -41,10 +49,38 @@ l_to.grid(row = 2, column = 0)
 
 options = [10 ** i for i in range(10)]
 
-c_from = Combobox(values = list(map(lambda v: v * -1, options)))
-c_from.grid(row = 1, column = 1)
+cb_from = Combobox(values = list(map(lambda v: v * -1, options)))
+cb_from.grid(row = 1, column = 1)
 
-c_to = Combobox(values = options)
-c_to.grid(row = 2, column = 1)
+cb_to = Combobox(values = options)
+cb_to.grid(row = 2, column = 1)
+
+e = Entry()
+e.grid(row = 0, column = 2)
+
+def add_to_list():
+    value = e.get()
+
+    try: value = int(value)
+    except:
+        messagebox.showerror("List error", "You tried to add an item that is not a number")
+        return
+
+    if value in lb.get(0, END):
+        messagebox.showwarning("List warning", f"{value} is already in the list")
+        e.delete(0, END)
+        return
+
+    lb.insert(END, value)
+    e.delete(0, END)
+
+b_add_to_list = Button(text = "Add to list", command = add_to_list)
+b_add_to_list.grid(row = 1, column = 2)
+
+b_clear_list = Button(text = "Clear list", command = lambda: lb.delete(0, END))
+b_clear_list.grid(row = 2, column = 2)
+
+lb = Listbox()
+lb.grid(row = 3, column = 2)
 
 w.mainloop()
