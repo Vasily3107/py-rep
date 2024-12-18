@@ -1,19 +1,45 @@
 from tkinter import *
+from tkinter.ttk import Combobox
 
 w = Tk()
 
 w.geometry("400x300")
 
 l = Label(text = "Waiting for a click")
-l.pack()
+l.grid(row = 0, column = 0)
 
 from random import randint
 def set_rand_num():
-    global l
-    n = randint(-(2**31), 2**31)
+    try: left = int(c_from.get())
+    except:
+        l.configure(text = "bounds error")
+        return
+
+    try: right = int(c_to.get())
+    except:
+        l.configure(text = "bounds error")
+        return
+
+    if left > right: left, right = right, left
+
+    n = randint(left, right)
     l.configure(text = f"{n:,}")
 
 b = Button(text = "Generater random number", command = set_rand_num)
-b.pack()
+b.grid(row = 0, column = 1)
+
+l_from = Label(text = "From:")
+l_from.grid(row = 1, column = 0)
+
+l_to = Label(text = "To:")
+l_to.grid(row = 2, column = 0)
+
+options = [10 ** i for i in range(10)]
+
+c_from = Combobox(values = list(map(lambda v: v * -1, options)))
+c_from.grid(row = 1, column = 1)
+
+c_to = Combobox(values = options)
+c_to.grid(row = 2, column = 1)
 
 w.mainloop()
