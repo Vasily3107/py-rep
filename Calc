@@ -17,3 +17,6 @@ class Calc:
             return self.v1 / self.v2
         else:
             return "Can't divide by zero"
+
+    def tmp(self):
+        print("tmp")
