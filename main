@@ -1,86 +1,347 @@
 from tkinter import *
 from tkinter.ttk import Combobox
 from tkinter import messagebox
+from winreg import *
 
 w = Tk()
+w.title("Windows -10 Registry Editor")
+w.geometry("1000x400")
 
-w.geometry("400x300")
+# getters
+def get_hkey(return_as_str = False):
+    hkey = hkey_list.get()
 
-l = Label(text = "Waiting for a click")
-l.grid(row = 0, column = 0)
+    if not hkey in hkey_values:
+        folder_list.configure(values = [])
+        info_label.configure(text = "HKEY value error!", fg="red")
+        return
 
-from random import randint
-def set_rand_num():
-    try: left = int(cb_from.get())
+    if return_as_str: return hkey
+    return hkey_dict.get(hkey)
+
+def get_path():
+    path = folder_list.get()
+
+    hkey = get_hkey()
+    if not hkey in list( hkey_dict.values() ): return
+
+    try: CloseKey( OpenKey(hkey, path) )
     except:
-        l.configure(text = "bounds error")
-        messagebox.showerror("Left bound error", "Bound \"From\" is not a number")
+        info_label.configure(text = "Path error!", fg="red")
+        subfolder_list.configure(values = [])
         return
 
-    try: right = int(cb_to.get())
+    return path
+
+# miscellaneous
+button_width = 15
+middle_section_width = 90
+
+info_label = Label()
+info_label.grid(row = 2, column = 0, columnspan = 2)
+
+def return_function():
+    path = get_path()
+    
+    try:
+        if path.count("\\") == 0:
+            info_label.configure(text = "Nowhere to return", fg="red")
+            folder_list.set("")
+
+            global subfolder_list
+            subfolder_list.configure(values = [])
+            update_value_list()
+
+            return
     except:
-        l.configure(text = "bounds error")
-        messagebox.showerror("Right bound error", "Bound \"To\" is not a number")
+        info_label.configure(text = "Nowhere to return", fg="red")
         return
 
-    if left > right:
-        messagebox.showwarning("Bounds warning", "Left bound cannot be greater than Right one")
-        left, right = right, left
+    tmp = path.split("\\")[:-1]
+    path = ""
+    for i in range(len(tmp)):
+        path += tmp[i]
+        if i != len(tmp) - 1: path += "\\"
 
-    n = randint(left, right)
+    folder_list.set(path)
+    update_subfolder_list()
 
-    if all( i in list(lb.get(0, END)) for i in list(range(left, right + 1)) ):
-        messagebox.showwarning("Genereting warning", f"All possible numbers from {left} to {right} are in the list")
+    info_label.configure(text = f"Returned to \"{tmp[-1]}\"", fg="green")
+
+return_button = Button(text = "Return", width = button_width, command = return_function)
+return_button.grid(row = 4, column = 3)
+
+# value list
+value_label = Label(text = "Value list: ( to delete a value: select it and click \"Delete\" button. BE CAREFULL! )")
+value_label.grid(row = 100, column = 2)
+
+value_list = Listbox(width = middle_section_width + 25, selectmode = EXTENDED)
+value_list.grid(row = 101, column = 2, columnspan = 2)
+
+value_list_values = []
+
+def update_value_list():
+    hkey = get_hkey()
+    path = get_path()
+
+    value_list.delete(0, END)
+
+    global value_list_values
+    value_list_values = []
+
+    try:
+        with OpenKey(hkey, path) as key:
+            try:
+                i = 0
+                while True:
+                    value = EnumValue(key, i)
+                    value_list.insert(END, f"NAME: {value[0]}, DATA: {value[1]}")
+                    value_list_values.append(value)
+                    i += 1
+            except:
+                if i == 0:
+                    value_list.insert(END, "No values were found")
+    except: pass
+
+deselect_button = Button(text = "Deselect all", width = button_width, command = lambda: value_list.select_clear(0, END))
+deselect_button.grid(row = 100, column = 3)
+
+def function_security_measure(f, is_value = True, is_del = True, info = ""):
+    if is_value:
+        if is_del: choice = messagebox.askyesno("Deleting values", f"Are you sure you want to delete selected values?\n{info}")
+        else:      choice = messagebox.askyesno("Creating value", f"Are you sure you want to create this value?\n{info}")
+    else:
+        if is_del: choice = messagebox.askyesno("Deleting a key", f"Are you sure you want to delete this key?\n{info}")
+        else:      choice = messagebox.askyesno("Creating a key", f"Are you sure you want to create this key?\n{info}")
+
+    if choice: f()
+    else: return
+
+def delete_values():
+    hkey = get_hkey()
+    path = get_path()
+
+    value_indices = value_list.curselection()
+    global value_list_values
+
+    if len(value_indices) == 0:
+        info_label.configure(text = "Nothing is selected!", fg="red")
         return
 
-    while n in lb.get(0, END):
-        n = randint(left, right)
-
-    l.configure(text = f"{n:,}")
-
-b_generate = Button(text = "Generate random number", command = set_rand_num)
-b_generate.grid(row = 0, column = 1)
-
-l_from = Label(text = "From:")
-l_from.grid(row = 1, column = 0)
-
-l_to = Label(text = "To:")
-l_to.grid(row = 2, column = 0)
-
-options = [10 ** i for i in range(10)]
-
-cb_from = Combobox(values = list(map(lambda v: v * -1, options)))
-cb_from.grid(row = 1, column = 1)
-
-cb_to = Combobox(values = options)
-cb_to.grid(row = 2, column = 1)
-
-e = Entry()
-e.grid(row = 0, column = 2)
-
-def add_to_list():
-    value = e.get()
-
-    try: value = int(value)
+    try:
+        for i in value_indices:
+            with OpenKey(hkey, path, access = KEY_WRITE) as key:
+                DeleteValue(key, value_list_values[i][0])
+        info_label.configure("Value(s) was/were deleted", fg="green")
+    except PermissionError:
+        messagebox.showerror("Deletion permission error", "Acces is denied. You do NOT have rights to perform this action.")
     except:
-        messagebox.showerror("List error", "You tried to add an item that is not a number")
+        pass
+
+    update_value_list()
+
+delete_value_button = Button(text = "Delete value", width = button_width, command = lambda: function_security_measure(delete_values))
+delete_value_button.grid(row = 5, column = 1)
+
+create_name_label = Label(text = "Value name:")
+create_name_label.grid(row = 3, column = 0)
+
+create_name_entry = Entry()
+create_name_entry.grid(row = 4, column = 0)
+
+create_data_label = Label(text = "Value data:")
+create_data_label.grid(row = 3, column = 1)
+
+create_data_entry = Entry()
+create_data_entry.grid(row = 4, column = 1)
+
+def create_value():
+    hkey = get_hkey()
+    path = get_path()
+
+    name = create_name_entry.get()
+    data = create_data_entry.get()
+
+    create_name_entry.delete(0, END)
+    create_data_entry.delete(0, END)
+
+    try:
+        with CreateKeyEx(hkey, path) as key:
+            SetValueEx(key, name, 0, REG_SZ, data)
+        info_label.configure("Value(s) was/were created", fg="green")
+    except PermissionError:
+        messagebox.showerror("Deletion permission error", "Acces is denied. You do NOT have rights to perform this action.")
+    except:
+        pass
+
+    global value_list_values
+    update_value_list()
+
+create_value_button = Button(text = "Create value", width = button_width, command = lambda: function_security_measure(create_value, is_del = False, info = f"Create value in \"{get_hkey(True)}\\{get_path()}\" ?"))
+create_value_button.grid(row = 5, column = 0)
+
+def create_key():
+    hkey = get_hkey()
+    path = get_path()
+
+    from types import NoneType
+    if type(path) is NoneType: return
+
+    name = key_name_entry.get()
+
+    key_name_entry.delete(0, END)
+
+    if len(name) == 0:
+        messagebox.showerror("Create key error", "Cannot create a key with empty name")
         return
 
-    if value in lb.get(0, END):
-        messagebox.showwarning("List warning", f"{value} is already in the list")
-        e.delete(0, END)
+    if len(path) != 0: path += f"\\{name}"
+    else:              path = name
+
+    try:
+        with CreateKey(hkey, path) as key:
+            info_label.configure("Key has been created", fg="green")
+    except PermissionError:
+        messagebox.showerror("Creation permission error", "Acces is denied. You do NOT have rights to perform this action.")
+    except:
+        pass
+
+    update_folder_list()
+    update_subfolder_list()
+
+create_key_button = Button(text = "Create key", width = button_width, command = lambda: function_security_measure(create_key, False, False))
+create_key_button.grid(row = 8, column = 0)
+
+def delete_key():
+    hkey = get_hkey()
+    path = get_path()
+
+    name = key_name_entry.get()
+
+    key_name_entry.delete(0, END)
+
+    try:
+        with OpenKey(hkey, path, 0, KEY_WRITE) as key:
+            DeleteKey(key, name)
+    except FileNotFoundError:
+        messagebox.showerror("Key not found", f"There's no {name} in {get_hkey(True)}\\{path}")
+    except PermissionError:
+        messagebox.showerror("Creation permission error", "Acces is denied. You do NOT have rights to perform this action.")
+    except:
+        pass
+
+    update_folder_list()
+    update_subfolder_list()
+
+delete_key_button = Button(text = "Delete key", width = button_width, command = lambda: function_security_measure(delete_key, False, info = f"Delete key in \"{get_hkey(True)}\\{get_path()}\" ?"))
+delete_key_button.grid(row = 8, column = 1)
+
+key_name_label = Label(text = "Enter key name:")
+key_name_label.grid(row = 6, column = 0, columnspan = 2)
+
+key_name_entry = Entry(width = int(2.8 * button_width))
+key_name_entry.grid(row = 7, column = 0, columnspan = 2)
+
+# hkey list
+hkey_label = Label(text = "Select HKEY value:")
+hkey_label.grid(row = 0, column = 0)
+
+hkey_dict = {"HKEY_CLASSES_ROOT"   : HKEY_CLASSES_ROOT,
+             "HKEY_CURRENT_USER"   : HKEY_CURRENT_USER,
+             "HKEY_LOCAL_MACHINE"  : HKEY_LOCAL_MACHINE,
+             "HKEY_USERS"          : HKEY_USERS,
+             "HKEY_CURRENT_CONFIG" : HKEY_CURRENT_CONFIG}
+
+hkey_values = list( hkey_dict.keys() )
+hkey_list = Combobox(width = max(len(i) for i in hkey_values) + 1, values = hkey_values)
+hkey_list.grid(row = 1, column = 0)
+
+def update_folder_list():
+    global folder_list_values
+    folder_list_values = []
+
+    hkey = get_hkey()
+    if not hkey in list( hkey_dict.values() ): return
+
+    try:
+        with OpenKey(hkey, "") as key:
+            try:
+                i = 0
+                while True:
+                    folder = EnumKey(key, i)
+                    folder_list_values.append(folder)
+                    i += 1
+            except:
+                folder_list.configure(values = folder_list_values)
+                info_label.configure(text = "Folder list has been updated!", fg="green")
+                if len(folder_list_values) == 0:
+                    info_label.configure(text = "No folders were found", fg="red")
+    except:
+        pass
+
+select_hkey_button = Button(text = "View folders", command = update_folder_list, width = button_width)
+select_hkey_button.grid(row = 1, column = 1)
+
+# folder list
+folder_list_values = []
+
+folder_label = Label(text = "Select folder:")
+folder_label.grid(row = 0, column = 2)
+
+folder_list = Combobox(width = middle_section_width)
+folder_list.grid(row = 1, column = 2)
+
+def update_subfolder_list():
+    global subfolder_list_values
+    subfolder_list_values = []
+
+    hkey = get_hkey()
+
+    path = get_path()
+    if len(path) == 0:
+        info_label.configure(text = "Can't get subfolders without folder", fg="red")
         return
 
-    lb.insert(END, value)
-    e.delete(0, END)
+    try:
+        with OpenKey(hkey, path) as key:
+            try:
+                i = 0
+                while True:
+                    subfolder = EnumKey(key, i)
+                    subfolder_list_values.append(subfolder)
+                    i += 1
+            except:
+                subfolder_list.configure(values = subfolder_list_values)
+                info_label.configure(text = "Subfolder list has been updated!", fg="green")
+                if len(subfolder_list_values) == 0:
+                    info_label.configure(text = "No subfolders were found", fg="red")
+    except: pass
 
-b_add_to_list = Button(text = "Add to list", command = add_to_list)
-b_add_to_list.grid(row = 1, column = 2)
+    subfolder_list.set("")
+    update_value_list()
 
-b_clear_list = Button(text = "Clear list", command = lambda: lb.delete(0, END))
-b_clear_list.grid(row = 2, column = 2)
+select_path_button = Button(text = "View subfolders", command = update_subfolder_list, width = button_width)
+select_path_button.grid(row = 1, column = 3)
 
-lb = Listbox()
-lb.grid(row = 3, column = 2)
+# subfolder list
+subfolder_list_values = []
+
+subfolder_label = Label(text = "Select subfolder:")
+subfolder_label.grid(row = 2, column = 2)
+
+subfolder_list = Combobox(width = middle_section_width)
+subfolder_list.grid(row = 3, column = 2)
+
+def append_folder_list():
+    path_to_append = f"\\{subfolder_list.get()}"
+
+    if len(path_to_append) - 1 != 0:
+        folder_list.insert(END, path_to_append)
+        update_subfolder_list()
+    else:
+        info_label.configure(text = "Nothing to append", fg="red")
+
+append_path_button = Button(text = "Append", command = append_folder_list, width = button_width)
+append_path_button.grid(row = 3, column = 3)
 
 w.mainloop()
