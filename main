@@ -276,8 +276,16 @@ def update_folder_list():
                 info_label.configure(text = "Folder list has been updated!", fg="green")
                 if len(folder_list_values) == 0:
                     info_label.configure(text = "No folders were found", fg="red")
-    except:
-        pass
+    except: pass
+
+    from time import sleep
+    for i in range(3):
+        folder_label.configure(background = "yellow")
+        w.update()
+        sleep(0.1)
+        folder_label.configure(background = hkey_label.cget("background"))
+        w.update()
+        sleep(0.1)
 
 select_hkey_button = Button(text = "View folders", command = update_folder_list, width = button_width)
 select_hkey_button.grid(row = 1, column = 1)
@@ -316,6 +324,15 @@ def update_subfolder_list():
                 if len(subfolder_list_values) == 0:
                     info_label.configure(text = "No subfolders were found", fg="red")
     except: pass
+
+    from time import sleep
+    for i in range(3):
+        subfolder_label.configure(background = "yellow")
+        w.update()
+        sleep(0.1)
+        subfolder_label.configure(background = hkey_label.cget("background"))
+        w.update()
+        sleep(0.1)
 
     subfolder_list.set("")
     update_value_list()
